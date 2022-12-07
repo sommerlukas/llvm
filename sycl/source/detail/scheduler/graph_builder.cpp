@@ -9,6 +9,10 @@
 #include "detail/config.hpp"
 #include <detail/context_impl.hpp>
 #include <detail/event_impl.hpp>
+#include <sycl/feature_test.hpp>
+#if SYCL_EXT_CODEPLAY_KERNEL_FUSION
+#include <detail/jit_compiler.hpp>
+#endif
 #include <detail/memory_manager.hpp>
 #include <detail/queue_impl.hpp>
 #include <detail/scheduler/scheduler.hpp>
@@ -1432,7 +1436,8 @@ Scheduler::GraphBuilder::completeFusion(QueueImplPtr Queue,
 
   // TODO: The logic to invoke the JIT compiler to create a fused kernel from
   // the list will be added in a later PR.
-  auto FusedCG = nullptr;
+  auto FusedCG = detail::jit_compiler::get_instance().fuseKernels(
+      Queue, CmdList, PropList);
 
   if (!FusedCG) {
     // If the JIT compiler returns a nullptr, JIT compilation of the fused
