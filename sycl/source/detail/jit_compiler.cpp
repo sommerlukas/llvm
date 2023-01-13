@@ -842,10 +842,13 @@ jit_compiler::fuseKernels(QueueImplPtr Queue,
   }(FusedKernelInfo.NDR);
   updatePromotedArgs(FusedKernelInfo, NDRDesc, FusedArgs, ArgsStorage);
 
+  OSModuleHandle Handle = OSUtil::DummyModuleHandle;
   if (!FusionResult.cached()) {
     auto PIDeviceBinaries = createPIDeviceBinary(FusedKernelInfo, TargetFormat);
     detail::ProgramManager::getInstance().addImages(PIDeviceBinaries);
+    Handle = OSUtil::getOSModuleHandle(PIDeviceBinaries->DeviceBinaries);
   } else if (DebugEnabled) {
+    // TODO(Lukas): Create correct OSModuleHandle when using a cached binary.
     std::cerr << "INFO: Re-using existing device binary for fused kernel\n";
   }
 
@@ -866,8 +869,8 @@ jit_compiler::fuseKernels(QueueImplPtr Queue,
       NDRDesc, nullptr, nullptr, std::move(KernelBundleImplPtr),
       std::move(ArgsStorage), std::move(AccStorage),
       std::move(RawExtendedMembers), std::move(Requirements), std::move(Events),
-      std::move(FusedArgs), FusedKernelInfo.Name, OSUtil::DummyModuleHandle, {},
-      {}, CG::CGTYPE::Kernel));
+      std::move(FusedArgs), FusedKernelInfo.Name, Handle, {}, {},
+      CG::CGTYPE::Kernel));
   return FusedCG;
 }
 
@@ -876,15 +879,18 @@ pi_device_binaries jit_compiler::createPIDeviceBinary(
     ::jit_compiler::BinaryFormat Format) {
 
   const char *TargetSpec = nullptr;
+  pi_device_binary_type BinFormat = PI_DEVICE_BINARY_TYPE_NATIVE;
   switch (Format) {
   case ::jit_compiler::BinaryFormat::PTX: {
     TargetSpec = __SYCL_PI_DEVICE_BINARY_TARGET_NVPTX64;
+    BinFormat = PI_DEVICE_BINARY_TYPE_NONE;
     break;
   }
   case ::jit_compiler::BinaryFormat::SPIRV: {
     TargetSpec = (FusedKernelInfo.BinaryInfo.AddressBits == 64)
                      ? __SYCL_PI_DEVICE_BINARY_TARGET_SPIRV64
                      : __SYCL_PI_DEVICE_BINARY_TARGET_SPIRV32;
+    BinFormat = PI_DEVICE_BINARY_TYPE_SPIRV;
     break;
   }
   default:
@@ -918,7 +924,7 @@ pi_device_binaries jit_compiler::createPIDeviceBinary(
   DeviceBinariesCollection Collection;
   Collection.addDeviceBinary(std::move(Binary),
                              FusedKernelInfo.BinaryInfo.BinaryStart,
-                             FusedKernelInfo.BinaryInfo.BinarySize, TargetSpec);
+                             FusedKernelInfo.BinaryInfo.BinarySize, TargetSpec, BinFormat);
 
   JITDeviceBinaries.push_back(std::move(Collection));
   return JITDeviceBinaries.back().getPIDeviceStruct();
