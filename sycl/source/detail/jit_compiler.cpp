@@ -799,7 +799,7 @@ jit_compiler::fuseKernels(QueueImplPtr Queue,
   JITConfig.set<::jit_compiler::option::JITEnableVerbose>(DebugEnabled);
   JITConfig.set<::jit_compiler::option::JITEnableCaching>(
       detail::SYCLConfig<detail::SYCL_ENABLE_FUSION_CACHING>::get());
-      
+
   ::jit_compiler::BinaryFormat TargetFormat = getTargetFormat(Queue);
   JITConfig.set<::jit_compiler::option::JITTargetFormat>(TargetFormat);
 
