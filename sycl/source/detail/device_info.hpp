@@ -762,7 +762,8 @@ struct get_device_info_impl<
     // and LevelZero.
     (void)dev;
     return (Plugin.getBackend() == backend::ext_oneapi_level_zero) ||
-           (Plugin.getBackend() == backend::opencl);
+           (Plugin.getBackend() == backend::opencl) ||
+           (Plugin.getBackend() == backend::ext_oneapi_cuda);
 #else  // SYCL_EXT_CODEPLAY_KERNEL_FUSION
     (void)dev;
     (void)Plugin;
