@@ -11,6 +11,7 @@
 
 #include "Kernel.h"
 #include "View.h"
+#include "fusion/JITContext.h"
 
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/IR/Module.h>
@@ -22,7 +23,6 @@
 
 namespace jit_compiler {
 
-using SourceHash = DynArray<uint8_t>;
 llvm::Expected<SourceHash>
 calculateSourceHash(InMemoryFile SourceFile, View<InMemoryFile> IncludeFiles,
                   const llvm::opt::InputArgList &UserArgList);
@@ -30,7 +30,7 @@ calculateSourceHash(InMemoryFile SourceFile, View<InMemoryFile> IncludeFiles,
 llvm::Expected<std::unique_ptr<llvm::Module>>
 compileDeviceCode(InMemoryFile SourceFile, View<InMemoryFile> IncludeFiles,
                   const llvm::opt::InputArgList &UserArgList,
-                  std::string &BuildLog);
+                  std::string &BuildLog, SourceHash CacheKey);
 
 llvm::Error linkDeviceLibraries(llvm::Module &Module,
                                 const llvm::opt::InputArgList &UserArgList,

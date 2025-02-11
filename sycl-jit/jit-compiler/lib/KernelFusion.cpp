@@ -277,14 +277,13 @@ compileSYCL(InMemoryFile SourceFile, View<InMemoryFile> IncludeFiles,
   if (!HashOrError) {
     return errorTo<RTCResult>(HashOrError.takeError(), "Source hashing failed");
   }
-  auto SourceHash = *HashOrError;
   auto Stop = std::chrono::high_resolution_clock::now();
 
   std::chrono::duration<double, std::milli> HashTime = Stop - Start;
   llvm::dbgs() << "Hashing took " << int(HashTime.count()) << "ms\n";
 
-  auto ModuleOrErr =
-      compileDeviceCode(SourceFile, IncludeFiles, UserArgList, BuildLog);
+  auto ModuleOrErr = compileDeviceCode(SourceFile, IncludeFiles, UserArgList,
+                                       BuildLog, HashOrError.get());
   if (!ModuleOrErr) {
     return errorTo<RTCResult>(ModuleOrErr.takeError(),
                               "Device compilation failed");

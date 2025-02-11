@@ -55,6 +55,10 @@ private:
   BinaryFormat Format;
 };
 
+constexpr static size_t SourceHashSize = 32;
+using SourceHash = std::array<uint8_t, SourceHashSize>;
+using SourceCacheEntry = std::shared_ptr<std::string>;
+
 ///
 /// Context to persistenly store information across invocations of the JIT
 /// compiler and manage lifetimes of binaries.
@@ -76,6 +80,12 @@ public:
   std::optional<SYCLKernelInfo> getCacheEntry(CacheKeyT &Identifier) const;
 
   void addCacheEntry(CacheKeyT &Identifier, SYCLKernelInfo &Kernel);
+
+  std::optional<SourceCacheEntry> getSourceCacheEnty(SourceHash &Key);
+
+  void addSourceCacheEntry(SourceHash &Key, SourceCacheEntry &&Source);
+
+  void removeSourceCacheEntry(SourceHash &Key);
 
 private:
   JITContext();
@@ -101,6 +111,18 @@ private:
   mutable MutexT CacheMutex;
 
   std::unordered_map<CacheKeyT, SYCLKernelInfo> Cache;
+
+  MutexT SourceCacheMutex;
+
+  struct CustomHash {
+    std::size_t operator()(const SourceHash &H) const noexcept {
+      static_assert(SourceHashSize >= sizeof(size_t));
+      return static_cast<const size_t *>(
+          static_cast<const void *>(H.data()))[0];
+    }
+  };
+
+  std::unordered_map<SourceHash, SourceCacheEntry, CustomHash> SourceCache;
 };
 } // namespace jit_compiler
 

@@ -144,8 +144,8 @@ protected:
   void ExecuteAction() override {
     CompilerInstance &CI = getCompilerInstance();
 
-    std::string PreprocessedSource;
-    raw_string_ostream PreprocessStream(PreprocessedSource);
+    auto PreprocessedSource = std::make_shared<std::string>();
+    raw_string_ostream PreprocessStream(*PreprocessedSource);
 
     PreprocessorOutputOptions Opts;
     Opts.ShowCPP = 1;
@@ -154,9 +154,12 @@ protected:
     DoPrintPreprocessedInput(CI.getPreprocessor(), &PreprocessStream, Opts);
 
     llvm::ArrayRef<uint8_t> PreprocessedData(
-        (const uint8_t *)PreprocessedSource.data(), PreprocessedSource.size());
+        (const uint8_t *)PreprocessedSource->data(),
+        PreprocessedSource->size());
 
     HashValue = BLAKE3::hash(PreprocessedData);
+    JITContext::getInstance().addSourceCacheEntry(
+        HashValue, std::move(PreprocessedSource));
   }
 };
 
@@ -345,14 +348,24 @@ void setupTool(ClangTool &Tool, const std::string &DPCPPRoot,
 
 } // anonymous namespace
 
-Expected<std::unique_ptr<llvm::Module>> jit_compiler::compileDeviceCode(
-    InMemoryFile SourceFile, View<InMemoryFile> IncludeFiles,
-    const InputArgList &UserArgList, std::string &BuildLog) {
+Expected<std::unique_ptr<llvm::Module>>
+jit_compiler::compileDeviceCode(InMemoryFile SourceFile,
+                                View<InMemoryFile> IncludeFiles,
+                                const InputArgList &UserArgList,
+                                std::string &BuildLog, SourceHash CacheKey) {
   TimeTraceScope TTS{"compileDeviceCode"};
 
   const std::string &DPCPPRoot = getDPCPPRoot();
   if (DPCPPRoot == InvalidDPCPPRoot) {
     return createStringError("Could not locate DPCPP root directory");
+  }
+
+  auto CachedSource = JITContext::getInstance().getSourceCacheEnty(CacheKey);
+  static size_t Count = 0;
+  std::string FileName = (Twine("rtc_") + Twine(Count) + ".ii").str();
+  if (CachedSource.has_value()) {
+    SourceFile = {FileName.c_str(), CachedSource->get()->data()};
+    ++Count;
   }
 
   SmallVector<std::string> CommandLine;
@@ -396,7 +409,7 @@ jit_compiler::calculateSourceHash(InMemoryFile SourceFile,
 
   GetSourceHashAction Action;
   if (!Tool.run(&Action)) {
-    return DynArray<uint8_t>(Action.HashValue.begin(), Action.HashValue.end());
+    return Action.HashValue;
   }
 
   return createStringError("Calculating source hash failed");

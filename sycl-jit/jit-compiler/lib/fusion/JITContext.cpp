@@ -41,3 +41,24 @@ void JITContext::addCacheEntry(CacheKeyT &Identifier, SYCLKernelInfo &Kernel) {
   WriteLockT WriteLock{CacheMutex};
   Cache.emplace(Identifier, Kernel);
 }
+
+std::optional<SourceCacheEntry>
+JITContext::getSourceCacheEnty(SourceHash &Key) {
+  ReadLockT ReadLock{SourceCacheMutex};
+  auto Entry = SourceCache.find(Key);
+  if (Entry != SourceCache.end()) {
+    return Entry->second;
+  }
+  return {};
+}
+
+void JITContext::addSourceCacheEntry(SourceHash &Key,
+                                     SourceCacheEntry &&Source) {
+  WriteLockT WriteLock{SourceCacheMutex};
+  SourceCache.emplace(Key, Source);
+}
+
+void JITContext::removeSourceCacheEntry(SourceHash &Key) {
+  WriteLockT WriteLock{SourceCacheMutex};
+  SourceCache.erase(Key);
+}
